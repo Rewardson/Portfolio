@@ -1,0 +1,164 @@
+name: Apply portfolio refinements
+
+on:
+  push:
+    branches: [portfolio-redesign-nav-work-writing]
+
+permissions:
+  contents: write
+
+jobs:
+  refine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply refinements
+        shell: python
+        run: |
+          from pathlib import Path
+
+          js = Path('assets/js/script.js')
+          css = Path('assets/css/style.css')
+
+          marker = '/* REWARDSON PORTFOLIO REFINEMENT V1 */'
+          if marker not in js.read_text(encoding='utf-8'):
+              js.open('a', encoding='utf-8').write(r'''
+
+/* REWARDSON PORTFOLIO REFINEMENT V1 */
+(() => {
+  const removeUnwanted = () => {
+    document.querySelectorAll('.testimonials, .testimonials-modal, .modal-container').forEach(el => el.remove());
+    document.querySelectorAll('.map, .mapbox, .google-map, .map-container, .contact-map').forEach(el => el.remove());
+    document.querySelectorAll('iframe').forEach(el => {
+      if (el.closest('[data-page="contact"]')) el.remove();
+    });
+  };
+
+  const projects = {
+    baza: {
+      code: '01', tag: 'SYSTEM / MOBILE / TRUST', title: 'Baza',
+      lead: 'A trust-focused service marketplace designed to connect clients with reliable informal artisans in Zambia.',
+      problem: 'Informal service markets often give clients little structured information about a worker’s identity, experience, reliability or previous work.',
+      approach: 'Baza models the complete service journey: discover a worker, evaluate trust, request a service, confirm arrival, complete the job and record the outcome.',
+      architecture: 'Role-based client and worker flows, authentication, persistent profiles, location-aware discovery, job state transitions and verified completion.',
+      stack: 'React Native · TypeScript · Firebase Authentication · Cloud Firestore · Cloud Storage · GPS / Location',
+      features: 'Trust Score · worker verification · skill locking · availability · job alerts · GPS arrival confirmation · six-digit completion OTP · ratings · dispute handling'
+    },
+    iduka: {
+      code: '02', tag: 'SYSTEM / RETAIL / DATA', title: 'Iduka',
+      lead: 'A retail management system built to turn everyday shop activity into clear, usable business information.',
+      problem: 'Manual stock counts and fragmented sales records make it difficult for a small retailer to know what is available, what was sold and whether the business is actually profitable.',
+      approach: 'Iduka connects products, stock, sales and expenses into one operational workflow so every transaction contributes to an up-to-date view of the shop.',
+      architecture: 'Authenticated users interact with structured product, inventory, sales and expense data through database-backed application flows, with realtime updates where required.',
+      stack: 'React Native · TypeScript · Supabase · PostgreSQL · Authentication · Realtime data',
+      features: 'Product catalogue · stock management · searchable sales workflow · expenses · profit calculation · role-aware access · realtime updates'
+    },
+    docket: {
+      code: '03', tag: 'WEB / INFORMATION SYSTEM / ACADEMIC', title: 'Docket Management System',
+      lead: 'A web-based information system designed to simplify examination docket administration, payment verification and controlled access to academic records.',
+      problem: 'Manual docket workflows can make payment checks, record verification and examination access slower and harder to audit.',
+      approach: 'The system brings student docket records and verification into a structured digital workflow, reducing repetitive manual checks.',
+      architecture: 'A database-backed web workflow connects student records, payment status, docket generation and QR-based verification into a single process.',
+      stack: 'HTML · CSS · JavaScript · SQL / Database workflows · QR verification',
+      features: 'Student records · docket generation · payment-status checks · QR verification · lecturer workflows · structured information management'
+    }
+  };
+
+  const workMarkup = () => `
+    <header class="cs-header">
+      <div class="cs-kicker"><span>02</span><i></i><span>COMPUTER SCIENCE / SELECTED SYSTEMS</span></div>
+      <h2 class="h2 article-title">Systems I’ve built.</h2>
+      <p class="cs-intro">A collection of software projects built around real problems, structured data, user workflows and practical engineering decisions.</p>
+    </header>
+    <div class="cs-grid">
+      ${Object.entries(projects).map(([id,p]) => `
+        <article class="cs-card" data-project="${id}">
+          <div class="cs-card-top"><span>${p.code}</span><span>${p.tag}</span></div>
+          <div class="cs-terminal"><span></span><span></span><span></span><b>system.${id}.project</b></div>
+          <h3>${p.title}</h3>
+          <p>${p.lead}</p>
+          <div class="cs-card-bottom"><span>CASE STUDY</span><button data-project-open="${id}">Inspect system <ion-icon name="arrow-forward-outline"></ion-icon></button></div>
+        </article>`).join('')}
+    </div>
+    <div class="cs-modal" id="csModal" aria-hidden="true">
+      <div class="cs-modal-backdrop" data-cs-close></div>
+      <section class="cs-dialog">
+        <button class="cs-close" data-cs-close aria-label="Close case study">×</button>
+        <div class="cs-dialog-head"><span id="csModalTag"></span><span id="csModalCode"></span></div>
+        <h3 id="csModalTitle"></h3><p id="csModalLead"></p>
+        <div class="cs-spec-grid">
+          <div><span>PROBLEM</span><p id="csProblem"></p></div>
+          <div><span>APPROACH</span><p id="csApproach"></p></div>
+          <div><span>ARCHITECTURE</span><p id="csArchitecture"></p></div>
+          <div><span>TECHNOLOGY</span><p id="csStack"></p></div>
+        </div>
+        <div class="cs-feature-line"><span>KEY FEATURES</span><p id="csFeatures"></p></div>
+      </section>
+    </div>`;
+
+  const enhanceWork = () => {
+    const work = document.querySelector('[data-page="work"]');
+    if (!work || work.dataset.csRefined === 'true') return;
+    work.dataset.csRefined = 'true';
+    work.classList.add('cs-work');
+    work.innerHTML = workMarkup();
+    const modal = document.querySelector('#csModal');
+    const close = () => { modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); document.body.classList.remove('modal-open'); };
+    document.querySelectorAll('[data-project-open]').forEach(btn => btn.addEventListener('click', () => {
+      const p = projects[btn.dataset.project];
+      document.querySelector('#csModalTag').textContent = p.tag;
+      document.querySelector('#csModalCode').textContent = p.code + ' / 03';
+      document.querySelector('#csModalTitle').textContent = p.title;
+      document.querySelector('#csModalLead').textContent = p.lead;
+      document.querySelector('#csProblem').textContent = p.problem;
+      document.querySelector('#csApproach').textContent = p.approach;
+      document.querySelector('#csArchitecture').textContent = p.architecture;
+      document.querySelector('#csStack').textContent = p.stack;
+      document.querySelector('#csFeatures').textContent = p.features;
+      modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); document.body.classList.add('modal-open');
+    }));
+    document.querySelectorAll('[data-cs-close]').forEach(btn => btn.addEventListener('click', close));
+  };
+
+  const enhanceContact = () => {
+    const contact = document.querySelector('[data-page="contact"]');
+    if (!contact || contact.dataset.contactRefined === 'true') return;
+    contact.dataset.contactRefined = 'true';
+    contact.querySelectorAll('.map, .mapbox, .google-map, .map-container, .contact-map, iframe').forEach(el => el.remove());
+    const form = contact.querySelector('form');
+    const intro = document.createElement('section');
+    intro.className = 'collaboration-panel';
+    intro.innerHTML = `<span class="cs-kicker"><span>LET’S CONNECT</span><i></i><span>COLLABORATION</span></span><h3>Let’s build something meaningful.</h3><p>I’m open to collaborating on software projects, technical ideas, digital products and systems that solve real problems. If you have a project, an idea, or simply want to start a conversation, reach me through any of the contact channels below.</p>`;
+    if (form) form.parentNode.insertBefore(intro, form); else contact.appendChild(intro);
+  };
+
+  const run = () => { removeUnwanted(); enhanceWork(); enhanceContact(); };
+  run();
+  window.addEventListener('load', run);
+  setTimeout(run, 250);
+})();
+''')
+
+          css_marker = '/* REWARDSON CS WORK REFINEMENT */'
+          if css_marker not in css.read_text(encoding='utf-8'):
+              css.open('a', encoding='utf-8').write(r'''
+
+/* REWARDSON CS WORK REFINEMENT */
+.cs-work{font-family:Inter,system-ui,sans-serif}.cs-header{margin-bottom:32px}.cs-kicker{display:flex;align-items:center;gap:10px;color:var(--orange-yellow-crayola,#ffdb70);font-size:9px;letter-spacing:.18em;font-weight:700}.cs-kicker i{display:block;width:32px;height:1px;background:currentColor}.cs-header .article-title{font-size:clamp(2rem,5vw,3rem);letter-spacing:-.04em;margin:14px 0 10px}.cs-intro{max-width:720px;color:var(--light-gray);line-height:1.8;font-size:13px}.cs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.cs-card{position:relative;min-height:350px;padding:20px;border:1px solid var(--jet);border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.025),rgba(255,255,255,.005));overflow:hidden;transition:.3s}.cs-card:before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,219,112,.035),transparent 45%);pointer-events:none}.cs-card:hover{transform:translateY(-6px);border-color:rgba(255,219,112,.22);box-shadow:0 20px 50px rgba(0,0,0,.22)}.cs-card-top,.cs-card-bottom{display:flex;justify-content:space-between;align-items:center;gap:10px}.cs-card-top{font:700 9px/1 Inter,sans-serif;letter-spacing:.16em;color:var(--light-gray-70)}.cs-card-top span:first-child{color:var(--orange-yellow-crayola)}.cs-terminal{display:flex;align-items:center;gap:5px;margin:34px 0 18px;padding-bottom:11px;border-bottom:1px solid var(--jet);font:500 9px/1.2 monospace;color:var(--light-gray-70)}.cs-terminal span{width:6px;height:6px;border-radius:50%;background:var(--light-gray-70)}.cs-terminal b{margin-left:auto;font-weight:500}.cs-card h3{font-size:22px;margin:0 0 10px;letter-spacing:-.03em}.cs-card>p{font-size:12px;line-height:1.75;color:var(--light-gray);max-width:330px}.cs-card-bottom{position:absolute;left:20px;right:20px;bottom:20px;padding-top:14px;border-top:1px solid var(--jet);font:700 8px/1 Inter,sans-serif;letter-spacing:.15em;color:var(--light-gray-70)}.cs-card-bottom button{display:inline-flex;align-items:center;gap:7px;background:none;border:0;color:var(--orange-yellow-crayola);font:700 10px Inter,sans-serif;cursor:pointer}.cs-modal{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:20px;opacity:0;visibility:hidden;pointer-events:none;transition:.25s}.cs-modal.active{opacity:1;visibility:visible;pointer-events:auto}.cs-modal-backdrop{position:absolute;inset:0;background:rgba(7,7,8,.9);backdrop-filter:blur(12px)}.cs-dialog{position:relative;width:min(900px,100%);max-height:90vh;overflow:auto;padding:34px;border:1px solid var(--jet);border-radius:20px;background:var(--eerie-black-2);box-shadow:0 30px 90px rgba(0,0,0,.55)}.cs-close{position:absolute;right:16px;top:16px;width:38px;height:38px;border:1px solid var(--jet);border-radius:10px;background:var(--onyx);color:var(--white-2);font-size:22px;cursor:pointer}.cs-dialog-head{display:flex;justify-content:space-between;padding-right:52px;font:700 8px Inter,sans-serif;letter-spacing:.18em;color:var(--orange-yellow-crayola)}.cs-dialog h3{font-size:clamp(30px,6vw,54px);letter-spacing:-.05em;margin:14px 0 10px}.cs-dialog>p{max-width:760px;color:var(--light-gray);font-size:13px;line-height:1.8}.cs-spec-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:26px}.cs-spec-grid>div,.cs-feature-line{padding:18px;border:1px solid var(--jet);border-radius:13px;background:rgba(255,255,255,.018)}.cs-spec-grid span,.cs-feature-line span{display:block;color:var(--orange-yellow-crayola);font:700 8px Inter,sans-serif;letter-spacing:.16em;margin-bottom:8px}.cs-spec-grid p,.cs-feature-line p{margin:0;color:var(--light-gray);font-size:11px;line-height:1.75}.cs-feature-line{margin-top:12px}.collaboration-panel{margin:0 0 24px;padding:26px;border:1px solid var(--jet);border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.025),transparent)}.collaboration-panel h3{font-size:25px;letter-spacing:-.03em;margin:14px 0 9px}.collaboration-panel p{max-width:700px;color:var(--light-gray);font-size:13px;line-height:1.8}
+@media(max-width:900px){.cs-grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.cs-grid,.cs-spec-grid{grid-template-columns:1fr}.cs-card{min-height:330px}.cs-dialog{padding:26px 18px}.collaboration-panel{padding:20px}}
+''')
+
+          # Remove the temporary workflow after applying the changes.
+          wf = Path('.github/workflows/portfolio-refine.yml')
+          wf.unlink(missing_ok=True)
+      - name: Commit refined portfolio
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/js/script.js assets/css/style.css .github/workflows/portfolio-refine.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "Refine CS work section and collaboration contact"
+          git push
