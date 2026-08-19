@@ -1,0 +1,95 @@
+name: Apply portfolio edits
+
+on:
+  push:
+    branches:
+      - portfolio-redesign-nav-work-writing
+
+permissions:
+  contents: write
+
+jobs:
+  edit:
+    runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Edit portfolio
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          html = Path('index.html')
+          text = html.read_text()
+
+          # Remove testimonials section and modal from the About page.
+          text = re.sub(r'\n\s*<!--\s*- testimonials\s*-->.*?\n\s*<!--\s*- testimonials modal\s*-->.*?\n\s*</div>\s*\n\s*\n\s*<!--\s*- clients\s*-->', '\n\n        <!--\n          - clients\n        -->', text, flags=re.S|re.I)
+          # Fallback: remove any remaining testimonials section/modal blocks.
+          text = re.sub(r'\n\s*<section class="testimonials">.*?</section>\s*', '\n', text, flags=re.S)
+          text = re.sub(r'\n\s*<div class="modal-container"[^>]*>.*?</div>\s*', '\n', text, count=1, flags=re.S)
+          # Remove map containers/iframes from contact markup.
+          text = re.sub(r'\n\s*<[^>]*(?:map|mapbox|google-map|contact-map)[^>]*>.*?</[^>]+>\s*', '\n', text, flags=re.S|re.I)
+          text = re.sub(r'\n\s*<iframe[^>]*>.*?</iframe>\s*', '\n', text, flags=re.S|re.I)
+
+          # Add collaboration panel immediately inside contact article if absent.
+          if 'class="collaboration-panel"' not in text:
+              panel = '''\n        <section class="collaboration-panel">\n          <span class="collab-kicker">LET'S CONNECT · COLLABORATION</span>\n          <h3 class="h3">Let’s build something meaningful.</h3>\n          <p>I’m open to collaborating on software projects, technical ideas, digital products and systems that solve real problems. If you have a project, an idea, or simply want to start a conversation, reach me through any of the contact channels below.</p>\n        </section>\n'''
+              text = re.sub(r'(<article[^>]+data-page="contact"[^>]*>)', r'\1' + panel, text, count=1)
+
+          html.write_text(text)
+
+          js = Path('assets/js/script.js')
+          j = js.read_text()
+          marker = '/* APPROVED CS WORK REFINEMENT */'
+          if marker not in j:
+              j += r'''
+
+/* APPROVED CS WORK REFINEMENT */
+(() => {
+  const data = {
+    baza: {num:'01', type:'SYSTEM / MOBILE / TRUST', title:'Baza', summary:'A trust-focused service marketplace connecting clients with reliable informal artisans in Zambia.', problem:'Clients often lack structured information about a worker’s identity, reliability, experience and previous work.', build:'A complete service workflow covering discovery, trust evaluation, service requests, arrival confirmation, completion and ratings.', tech:'React Native · TypeScript · Firebase Authentication · Cloud Firestore · Cloud Storage · GPS / Location', features:'Trust Score · verification · skill locking · availability · job alerts · GPS arrival confirmation · six-digit completion OTP · ratings · dispute handling'},
+    iduka: {num:'02', type:'SYSTEM / RETAIL / DATA', title:'Iduka', summary:'A retail management system connecting stock, sales, expenses and business insight in one workflow.', problem:'Manual stock counts and fragmented records make it difficult for small retailers to know what was sold, what remains and whether the business is profitable.', build:'A database-backed workflow that connects products, inventory, sales and expenses while keeping operational information current.', tech:'React Native · TypeScript · Supabase · PostgreSQL · Authentication · Realtime', features:'Product catalogue · stock management · searchable sales · expenses · profit calculation · access control · realtime updates'},
+    docket: {num:'03', type:'WEB / INFORMATION SYSTEM', title:'Docket Management System', summary:'A web information system for structured examination docket administration and verification.', problem:'Manual docket workflows make payment checks, record verification and examination access slower and harder to audit.', build:'A structured digital workflow connecting student records, payment status, docket generation and QR verification.', tech:'HTML · CSS · JavaScript · SQL / Database workflows · QR verification', features:'Student records · docket generation · payment checks · QR verification · lecturer workflows · structured information management'}
+  };
+  const work = document.querySelector('[data-page="portfolio"], [data-page="work"]');
+  if (!work || work.dataset.csApproved) return;
+  work.dataset.csApproved='1';
+  work.classList.add('cs-projects');
+  const host = work.querySelector('.portfolio-list, .project-list') || work;
+  const cards = Object.entries(data).map(([id,p]) => `<article class="cs-project-card"><div class="cs-code"><span>${p.num}</span><span>${p.type}</span></div><div class="cs-project-line"><span class="dot"></span><span class="dot"></span><span class="dot"></span><code>project.${id}</code></div><h3>${p.title}</h3><p>${p.summary}</p><button type="button" data-cs-project="${id}">VIEW CASE STUDY <ion-icon name="arrow-forward-outline"></ion-icon></button></article>`).join('');
+  host.innerHTML = `<header class="cs-project-heading"><span>02 · COMPUTER SCIENCE / SELECTED SYSTEMS</span><h2>Software built around real problems.</h2><p>Selected systems, applications and information platforms developed through software engineering, database design and practical problem solving.</p></header><div class="cs-project-grid">${cards}</div><div class="cs-case-modal" aria-hidden="true"><div class="cs-case-backdrop"></div><div class="cs-case"><button class="cs-case-close">×</button><div class="cs-case-meta"></div><h3></h3><p class="cs-case-summary"></p><div class="cs-case-grid"><div><b>PROBLEM</b><p class="p-problem"></p></div><div><b>APPROACH</b><p class="p-build"></p></div><div><b>TECHNOLOGY</b><p class="p-tech"></p></div><div><b>KEY FEATURES</b><p class="p-features"></p></div></div></div></div>`;
+  const modal=host.querySelector('.cs-case-modal');
+  const close=()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true')};
+  host.querySelectorAll('[data-cs-project]').forEach(b=>b.addEventListener('click',()=>{const p=data[b.dataset.csProject];modal.querySelector('.cs-case-meta').textContent=p.num+' · '+p.type;modal.querySelector('h3').textContent=p.title;modal.querySelector('.cs-case-summary').textContent=p.summary;modal.querySelector('.p-problem').textContent=p.problem;modal.querySelector('.p-build').textContent=p.build;modal.querySelector('.p-tech').textContent=p.tech;modal.querySelector('.p-features').textContent=p.features;modal.classList.add('open');modal.setAttribute('aria-hidden','false')}));
+  modal.querySelector('.cs-case-close').addEventListener('click',close); modal.querySelector('.cs-case-backdrop').addEventListener('click',close);
+})();
+'''
+
+          css = Path('assets/css/style.css')
+          c = css.read_text()
+          if '/* APPROVED CS WORK STYLE */' not in c:
+              c += r'''
+
+/* APPROVED CS WORK STYLE */
+.cs-project-heading{margin-bottom:28px}.cs-project-heading>span,.collab-kicker{font:700 9px/1.4 Inter,sans-serif;letter-spacing:.16em;color:var(--orange-yellow-crayola)}.cs-project-heading h2{font-size:clamp(28px,5vw,46px);letter-spacing:-.045em;margin:12px 0}.cs-project-heading p{max-width:720px;color:var(--light-gray);font-size:13px;line-height:1.8}.cs-project-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.cs-project-card{position:relative;min-height:330px;padding:20px;border:1px solid var(--jet);border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.025),transparent);display:flex;flex-direction:column;transition:.3s}.cs-project-card:hover{transform:translateY(-5px);border-color:rgba(255,219,112,.25)}.cs-code{display:flex;justify-content:space-between;font:700 8px/1 Inter,sans-serif;letter-spacing:.14em;color:var(--orange-yellow-crayola)}.cs-project-line{display:flex;align-items:center;gap:5px;margin:32px 0 16px;padding-bottom:12px;border-bottom:1px solid var(--jet);font:500 9px monospace;color:var(--light-gray-70)}.cs-project-line .dot{width:6px;height:6px;border-radius:50%;background:var(--light-gray-70)}.cs-project-line code{margin-left:auto}.cs-project-card h3{font-size:22px;margin:0 0 10px}.cs-project-card p{font-size:12px;line-height:1.75;color:var(--light-gray)}.cs-project-card button{margin-top:auto;align-self:flex-start;background:none;border:0;color:var(--orange-yellow-crayola);font:700 9px Inter,sans-serif;letter-spacing:.12em;cursor:pointer;padding:10px 0}.cs-case-modal{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;opacity:0;visibility:hidden;pointer-events:none;transition:.25s}.cs-case-modal.open{opacity:1;visibility:visible;pointer-events:auto}.cs-case-backdrop{position:absolute;inset:0;background:rgba(7,7,8,.9);backdrop-filter:blur(10px)}.cs-case{position:relative;width:min(880px,100%);max-height:90vh;overflow:auto;padding:32px;border:1px solid var(--jet);border-radius:20px;background:var(--eerie-black-2)}.cs-case-close{position:absolute;right:15px;top:15px;width:36px;height:36px;border:1px solid var(--jet);border-radius:9px;background:var(--onyx);color:var(--white-2);font-size:22px}.cs-case-meta{font:700 8px Inter,sans-serif;letter-spacing:.15em;color:var(--orange-yellow-crayola)}.cs-case h3{font-size:clamp(30px,6vw,52px);letter-spacing:-.05em;margin:14px 0}.cs-case-summary{color:var(--light-gray);font-size:13px;line-height:1.8}.cs-case-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px}.cs-case-grid>div{padding:16px;border:1px solid var(--jet);border-radius:12px}.cs-case-grid b{font:700 8px Inter,sans-serif;letter-spacing:.15em;color:var(--orange-yellow-crayola)}.cs-case-grid p{font-size:11px;line-height:1.7;color:var(--light-gray)}.collaboration-panel{margin-bottom:25px;padding:25px;border:1px solid var(--jet);border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.025),transparent)}.collaboration-panel h3{font-size:26px;margin:12px 0}.collaboration-panel p{max-width:720px;color:var(--light-gray);font-size:13px;line-height:1.8}@media(max-width:900px){.cs-project-grid{grid-template-columns:1fr 1fr}}@media(max-width:600px){.cs-project-grid,.cs-case-grid{grid-template-columns:1fr}.cs-case{padding:24px 18px}}
+'''
+          css.write_text(c)
+          PY
+
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html assets/js/script.js assets/css/style.css
+          git commit -m 'Refine work section and remove testimonials/map'
+          git push
+
+      - name: Remove workflow
+        run: |
+          git rm .github/workflows/apply-portfolio-edits.yml
+          git commit -m 'Remove one-time portfolio edit workflow'
+          git push
